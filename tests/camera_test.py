@@ -9,6 +9,7 @@ def diagnose_camera_problems():
     print("="*60)
     
     problems = []
+    working_resolutions = []
     
     # Test 1: Basic camera access with default settings
     print("\n1. Testing basic camera access (no settings)...")
@@ -27,34 +28,43 @@ def diagnose_camera_problems():
     print("\n2. Testing DirectShow specifically...")
     cap_dshow = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     if cap_dshow.isOpened():
-        # DirectShow often reports 0 FPS but still works
         dshow_fps = cap_dshow.get(cv2.CAP_PROP_FPS)
         print(f"  ✓ DirectShow opens (reports {dshow_fps:.1f} FPS)")
         if dshow_fps == 0:
             problems.append("DirectShow reports 0 FPS - this is normal but confusing")
+        cap_dshow.release()
     else:
         problems.append("DirectShow backend fails completely")
         print("  ✗ DirectShow fails")
     
     # Test 3: Try camera index 1
     print("\n3. Testing camera index 1 (might be different camera)...")
-    cap1 = cv2.VideoCapture(1, cv2.CAP_MSMF)
-    if cap1.isOpened():
-        fps1 = cap1.get(cv2.CAP_PROP_FPS)
-        w1 = cap1.get(cv2.CAP_PROP_FRAME_WIDTH)
-        h1 = cap1.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print(f"  ✓ Camera 1 exists: {w1}x{h1} @ {fps1:.1f} FPS")
-        cap1.release()
+    # Try different backends for camera 1
+    backends = [cv2.CAP_ANY, cv2.CAP_DSHOW, cv2.CAP_MSMF] if hasattr(cv2, 'CAP_MSMF') else [cv2.CAP_ANY, cv2.CAP_DSHOW]
+    
+    for backend in backends:
+        cap1 = cv2.VideoCapture(1, backend)
+        if cap1.isOpened():
+            fps1 = cap1.get(cv2.CAP_PROP_FPS)
+            w1 = cap1.get(cv2.CAP_PROP_FRAME_WIDTH)
+            h1 = cap1.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            backend_name = "DSHOW" if backend == cv2.CAP_DSHOW else "MSMF" if backend == cv2.CAP_MSMF else "DEFAULT"
+            print(f"  ✓ Camera 1 exists with {backend_name}: {w1}x{h1} @ {fps1:.1f} FPS")
+            cap1.release()
+            break
     else:
-        print("  ✗ No camera at index 1")
+        print("  ✗ No camera at index 1 with any backend")
     
     # Test 4: Check what settings actually work
     print("\n4. Testing achievable resolutions...")
     test_resolutions = [(320, 240), (640, 480), (800, 600), (1280, 720)]
-    working_resolutions = []
     
     for w, h in test_resolutions:
-        cap_test = cv2.VideoCapture(0, cv2.CAP_MSMF)
+        # Try with DirectShow first (most reliable on Windows)
+        cap_test = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        if not cap_test.isOpened():
+            cap_test = cv2.VideoCapture(0)
+        
         if cap_test.isOpened():
             # Try to set the resolution
             success_w = cap_test.set(cv2.CAP_PROP_FRAME_WIDTH, w)
@@ -73,7 +83,7 @@ def diagnose_camera_problems():
             elapsed = time.perf_counter() - start
             fps = frames / elapsed if elapsed > 0 else 0
             
-            if success_w and success_h:
+            if success_w and success_h and abs(actual_w - w) < 10:
                 working_resolutions.append((actual_w, actual_h, fps))
                 print(f"  ✓ {int(actual_w)}x{int(actual_h)}: {fps:.1f} FPS")
             else:
@@ -93,17 +103,24 @@ def diagnose_camera_problems():
     else:
         print("No obvious hardware/driver issues detected")
     
-    print(f"\nWorking resolutions:")
-    for w, h, fps in working_resolutions:
-        print(f"  {int(w)}x{int(h)}: {fps:.1f} FPS")
-    
-    # Recommendation
     if working_resolutions:
-        best_w, best_h, best_fps = max(working_resolutions, key=lambda x: x[2])
-        print(f"\nRECOMMENDATION: Use {int(best_w)}x{int(best_h)}")
-        return int(best_w), int(best_h), "MSMF"
+        print(f"\nWorking resolutions:")
+        for w, h, fps in working_resolutions:
+            print(f"  {int(w)}x{int(h)}: {fps:.1f} FPS")
+        
+        # Recommendation - pick best FPS at reasonable resolution
+        # Prefer resolutions >= 640x480 for gesture recognition
+        viable_resolutions = [(w, h, fps) for (w, h, fps) in working_resolutions if w >= 640]
+        if viable_resolutions:
+            best_w, best_h, best_fps = max(viable_resolutions, key=lambda x: x[2])
+        else:
+            # Fall back to any working resolution
+            best_w, best_h, best_fps = max(working_resolutions, key=lambda x: x[2])
+        
+        print(f"\nRECOMMENDATION: Use {int(best_w)}x{int(best_h)} with DirectShow")
+        return int(best_w), int(best_h), "DSHOW"
     
-    return 640, 480, "MSMF"  # Default fallback
+    return 640, 480, "DEFAULT"  # Default fallback
 
 def setup_camera_adaptive():
     """Adaptive camera setup based on diagnostics"""
@@ -118,11 +135,11 @@ def setup_camera_adaptive():
     print(f"  Backend: {best_backend}")
     print(f"  Resolution: {best_w}x{best_h}")
     
-    # Map backend name to code
+    # Map backend name to code with fallbacks
     backend_map = {
-        "MSMF": cv2.CAP_MSMF,
         "DSHOW": cv2.CAP_DSHOW,
-        "ANY": cv2.CAP_ANY
+        "MSMF": cv2.CAP_MSMF if hasattr(cv2, 'CAP_MSMF') else cv2.CAP_ANY,
+        "DEFAULT": cv2.CAP_ANY
     }
     backend_code = backend_map.get(best_backend, cv2.CAP_ANY)
     
@@ -130,7 +147,7 @@ def setup_camera_adaptive():
     cap = cv2.VideoCapture(0, backend_code)
     
     if not cap.isOpened():
-        print("ERROR: Cannot open camera with recommended backend")
+        print("WARNING: Cannot open camera with recommended backend")
         print("Falling back to default...")
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
@@ -143,11 +160,11 @@ def setup_camera_adaptive():
     
     # Try to set FPS - but don't fail if it doesn't work
     target_fps = 60 if best_w <= 640 else 30
-    cap.set(cv2.CAP_PROP_FPS, target_fps)
+    success_fps = cap.set(cv2.CAP_PROP_FPS, target_fps)
     
     # Only try manual controls if we have decent FPS already
     actual_fps = cap.get(cv2.CAP_PROP_FPS)
-    if actual_fps > 20:
+    if actual_fps > 20 or success_fps:
         try:
             # Try to disable auto-exposure
             cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
@@ -182,7 +199,7 @@ def benchmark_capture_smart(cap, num_frames=300):
         ret, frame = cap.read()
         if not ret:
             print(f"ERROR: Frame capture failed at frame {i}")
-            return 0, 0, 0, False
+            return 0, 0, 0, False, "FAILED"
         
         # Measure time and size
         current_time = time.perf_counter()
@@ -196,33 +213,33 @@ def benchmark_capture_smart(cap, num_frames=300):
         
         # Show progress
         if i % 50 == 0:
-            if i > 0:
+            if i > 0 and len(frame_times) >= 50:
                 current_fps = 1000 / np.mean(frame_times[-50:])
                 print(f"  Frame {i}/{num_frames}: {current_fps:.1f} FPS")
     
     # Calculate statistics
     if len(frame_times) < 10:
         print("ERROR: Not enough frames captured")
-        return 0, 0, 0, False
+        return 0, 0, 0, False, "FAILED"
     
     frame_times_array = np.array(frame_times[1:])
     
     avg_frame_time = np.mean(frame_times_array)
-    avg_fps = 1000 / avg_frame_time
+    avg_fps = 1000 / avg_frame_time if avg_frame_time > 0 else 0
     std_dev_ms = np.std(frame_times_array)
     
     # Check frame consistency
+    size_consistent = True
     if frame_sizes:
         unique_sizes = set(frame_sizes)
         size_consistent = len(unique_sizes) == 1
+        if not size_consistent:
+            print(f"  ⚠️ Frame size inconsistent: {unique_sizes}")
     
     print(f"\nBenchmark Results:")
     print(f"  Average FPS: {avg_fps:.1f}")
     print(f"  Average frame time: {avg_frame_time:.2f} ms")
     print(f"  Standard deviation: {std_dev_ms:.2f} ms")
-    
-    if frame_sizes and not size_consistent:
-        print(f"  ⚠️ Frame size inconsistent: {unique_sizes}")
     
     # Performance assessment
     print(f"\nPerformance Assessment:")
@@ -265,28 +282,35 @@ def optimize_for_game(cap, initial_fps, status):
         
         # Try absolute minimum settings
         print("\n1. Trying absolute minimum settings (320x240)...")
-        cap_min = cv2.VideoCapture(0)
-        cap_min.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-        cap_min.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+        cap_min = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        if not cap_min.isOpened():
+            cap_min = cv2.VideoCapture(0)
         
-        # Quick test
-        start = time.perf_counter()
-        frames = 0
-        for _ in range(30):
-            ret, _ = cap_min.read()
-            if ret:
-                frames += 1
-        elapsed = time.perf_counter() - start
-        min_fps = frames / elapsed if elapsed > 0 else 0
-        
-        print(f"  Minimum config: {min_fps:.1f} FPS")
-        
-        if min_fps > 20:
-            print("  ✓ Minimum config works")
-            return cap_min
+        if cap_min.isOpened():
+            cap_min.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+            cap_min.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+            
+            # Quick test
+            start = time.perf_counter()
+            frames = 0
+            for _ in range(30):
+                ret, _ = cap_min.read()
+                if ret:
+                    frames += 1
+            elapsed = time.perf_counter() - start
+            min_fps = frames / elapsed if elapsed > 0 else 0
+            
+            print(f"  Minimum config: {min_fps:.1f} FPS")
+            
+            if min_fps > 20:
+                print("  ✓ Minimum config works")
+                return cap_min
+            else:
+                print("  ✗ Even minimum config fails")
+                cap_min.release()
+                return None
         else:
-            print("  ✗ Even minimum config fails")
-            cap_min.release()
+            print("  ✗ Cannot open camera even for minimum config")
             return None
     
     elif status == "MARGINAL":
@@ -298,17 +322,20 @@ def optimize_for_game(cap, initial_fps, status):
         
         if current_w > 640:
             print(f"Reducing from {int(current_w)}x{int(current_h)} to 640x480...")
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            success_w = cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            success_h = cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             
-            # Test improvement
-            fps_before = initial_fps
-            avg_fps, _, _, _, _ = benchmark_capture_smart(cap, 100)
-            
-            if avg_fps > fps_before * 1.2:
-                print(f"  ✓ Improved from {fps_before:.1f} to {avg_fps:.1f} FPS")
+            if success_w and success_h:
+                # Test improvement
+                fps_before = initial_fps
+                avg_fps, _, _, _, _ = benchmark_capture_smart(cap, 100)
+                
+                if avg_fps > fps_before * 1.2:
+                    print(f"  ✓ Improved from {fps_before:.1f} to {avg_fps:.1f} FPS")
+                else:
+                    print(f"  ✗ No improvement: {avg_fps:.1f} FPS")
             else:
-                print(f"  ✗ No improvement: {avg_fps:.1f} FPS")
+                print("  ✗ Failed to reduce resolution")
     
     return cap
 

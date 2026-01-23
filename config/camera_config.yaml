@@ -1,0 +1,36 @@
+camera:
+  backend: "DirectShow"
+  device_index: 0
+  resolution:
+    width: 1280
+    height: 720
+  fps:
+    target: 30
+  controls:
+    auto_exposure: false
+    exposure_value: -6
+    auto_focus: false
+    auto_white_balance: false
+  optimization:
+    buffer_size: 1
+  
+frame_processing:
+  circular_buffer_size: 300
+  drop_detection:
+    enabled: true
+    max_consecutive_drops: 5
+
+logging:
+  performance_log:
+    enabled: true
+    file_location: "data/logs/performance.jsonl"
+  validation_log:
+    enabled: true
+    file_location: "data/logs/validation.jsonl"
+
+validation:
+  benchmark_duration_frames: 200
+  pass_criteria:
+    min_fps: 30
+    max_variance_ms: 5
+    max_drops: 10
