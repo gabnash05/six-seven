@@ -3,9 +3,9 @@ model_path: "models/hand_landmarker.task"
 num_hands: 2
 
 # Lower confidence thresholds for better tracking
-min_hand_detection_confidence: 0.5
-min_hand_presence_confidence: 0.4
-min_tracking_confidence: 0.4
+min_hand_detection_confidence: 0.3
+min_hand_presence_confidence: 0.3
+min_tracking_confidence: 0.3
 
 running_mode: "LIVE_STREAM"
 
@@ -20,3 +20,15 @@ frame_buffer_size: 3
 
 # Hand tracking settings 
 hand_tracking_distance_threshold: 100
+
+normalization:
+  enable_smoothing: true
+  temporal_buffer_size: 7  # Recommended: 7 frames (117ms @ 60fps)
+  min_torso_height: 0.2    # Minimum torso height as fraction of frame
+  
+  # Velocity calculation
+  velocity_window_size: 5
+  max_velocity: 3.0        # Maximum normalized units per second
+  
+  # Debug
+  debug_mode: false

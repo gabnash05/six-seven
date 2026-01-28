@@ -270,21 +270,12 @@ class HandDetector:
             return "Right", 0.5
         
         try:
-            # The structure is: handedness_list[hand_idx] is a list of categories
             categories = handedness_list[hand_idx]
             if categories and len(categories) > 0:
-                # Each category has 'index', 'score', and 'display_name' or 'category_name'
                 category = categories[0]
                 
-                # Try different attribute names
                 if hasattr(category, 'category_name'):
                     label = category.category_name
-                elif hasattr(category, 'display_name'):
-                    label = category.display_name
-                elif hasattr(category, 'label'):
-                    label = category.label
-                else:
-                    label = "Right"  # Default
                 
                 score = category.score if hasattr(category, 'score') else 0.5
                 return label, score

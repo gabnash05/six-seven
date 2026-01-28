@@ -3,13 +3,13 @@ camera:
   backend: "DirectShow"
   device_index: 0
   resolution:
-    width: 1280
-    height: 720
+    width: 640
+    height: 480
   fps:
     target: 30
   controls:
-    auto_exposure: false
-    exposure_value: -6
+    auto_exposure: true
+    exposure_value: -4
     auto_focus: false
     auto_white_balance: false
   optimization:
