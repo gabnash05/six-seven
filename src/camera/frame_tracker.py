@@ -17,6 +17,7 @@ class FrameTracker:
 
     def capture_frame(self, frame):
         """Record timestamp when frame is captured"""
+        
         if self._is_duplicate(frame):
             self.dropped_frames += 1
             return False
@@ -30,6 +31,7 @@ class FrameTracker:
     
     def _is_duplicate(self, frame):
         """Check if frame is identical to last frame"""
+
         if self.last_frame is None:
             return False
     

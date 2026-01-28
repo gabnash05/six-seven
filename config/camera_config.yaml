@@ -1,3 +1,4 @@
+# config/camera_config.yaml
 camera:
   backend: "DirectShow"
   device_index: 0

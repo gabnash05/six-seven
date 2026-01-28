@@ -13,6 +13,7 @@ class Camera:
     
     def initialize(self):
         """Initialize camera with DirectShow backend"""
+
         self.cap = cv2.VideoCapture(self.config['device_index'], cv2.CAP_DSHOW)
 
         if not self.cap.isOpened():
@@ -50,5 +51,6 @@ class Camera:
 
     def release(self):
         """Clean up camera"""
+        
         if self.cap:
             self.cap.release()
