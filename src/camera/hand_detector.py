@@ -369,6 +369,7 @@ class HandDetector:
         Use history to predict hand positions when detection is delayed.
         This maintains smooth tracking even with occasional missed frames.
         """
+        
 
         if self.left_hand and len(self.left_hand_history) > 1:
             last = self.left_hand_history[-1]

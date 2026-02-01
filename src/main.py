@@ -218,20 +218,25 @@ def main():
             print("   Normalized: 0 = torso, + = above, - = below")
         
         # Collect statistics
-        try:
-            tracker_stats = tracker.get_stats()
-        except:
-            tracker_stats = {"fps": 0, "drops": 0}
-        
-        try:
-            detector_stats = detector.get_detector_status()
-        except:
-            detector_stats = {"left_hand_detected": False, "right_hand_detected": False}
-        
-        try:
-            norm_stats = normalizer.get_normalization_stats()
-        except:
-            norm_stats = {"reference_established": False}
+        if frame_count % 10 == 0:  # Every 10 frames
+            try:
+                tracker_stats = tracker.get_stats()
+                detector_stats = detector.get_detector_status()
+                norm_stats = normalizer.get_normalization_stats()
+            except Exception as e:
+                if frame_count == 0:  # Only log on first occurrence to avoid spam
+                    print(f"⚠️ Stats collection error: {e}")
+                tracker_stats = {"fps": 0, "drops": 0}
+                detector_stats = {"left_hand_detected": False, "right_hand_detected": False}
+                norm_stats = {"reference_established": False}        
+                
+        else:
+            # Use simple detection status from normalization_result
+            detector_stats = {
+                "left_hand_detected": left_hand is not None,
+                "right_hand_detected": right_hand is not None
+            }
+            norm_stats = {"reference_established": normalization_result['reference']['established']}
         
         # Prepare consolidated stats
         display_stats = {

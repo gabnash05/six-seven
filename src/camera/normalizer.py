@@ -197,10 +197,10 @@ class HandNormalizer:
         right_normalized = None
 
         if left_hand is not None:
-            left_normalized = self.normalize_vertical_position(left_hand.palm_centroid[1], frame_height)
+            left_normalized = self.normalize_vertical_position(left_hand.wrist_position[1], frame_height)
         
         if right_hand is not None:
-            right_normalized = self.normalize_vertical_position(right_hand.palm_centroid[1], frame_height)
+            right_normalized = self.normalize_vertical_position(right_hand.wrist_position[1], frame_height)
         
         self.raw_positions_history.append((left_normalized, right_normalized, timestamp))
 

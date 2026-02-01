@@ -23,7 +23,7 @@ hand_tracking_distance_threshold: 100
 
 normalization:
   enable_smoothing: true
-  temporal_buffer_size: 7  # Recommended: 7 frames (117ms @ 60fps)
+  temporal_buffer_size: 3  # Recommended: 3 frames (100ms @ 30fps)
   min_torso_height: 0.2    # Minimum torso height as fraction of frame
   
   # Velocity calculation
