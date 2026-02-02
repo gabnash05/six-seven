@@ -1,0 +1,13 @@
+game:
+  dominance_threshold: 0.05      # Minimum difference to lock state
+  hysteresis: 0.05               # Additional margin for scoring
+  min_lock_frames: 5             # Frames needed to confirm lock
+  cooldown_duration: 0           # Seconds between scoring
+  
+  # Visualization
+  show_game_display: true
+  show_dominance_bars: true
+  show_delta_value: true
+  
+  # Debug
+  debug_mode: false
