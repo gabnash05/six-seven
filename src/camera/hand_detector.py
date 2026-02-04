@@ -285,7 +285,7 @@ class HandDetector:
         
         return "Right", 0.5
 
-
+    #TODO: OPTIMIZE
     def _process_detection_result(self, result: vision.HandLandmarkerResult, frame_id: int):
         """Process a single detection result"""
 
@@ -611,6 +611,7 @@ class HandDetector:
         
         return False
     
+
     def get_palm_orientation_stats(self, hand: Optional[HandData]) -> Dict[str, Any]:
         """Get detailed palm orientation statistics"""
         if hand is None or hand.world_landmarks is None:
@@ -634,6 +635,7 @@ class HandDetector:
             'handedness': hand.handedness
         }
     
+
     def get_detector_status(self) -> Dict[str, Any]:
         """Get current detector status for debugging"""
         return {
@@ -650,7 +652,9 @@ class HandDetector:
             "avg_detection_latency": np.mean(self.detection_latencies) if self.detection_latencies else 0
         }
     
+    
     def cleanup(self):
         """Clean up resources"""
+        
         if hasattr(self, 'landmarker'):
             self.landmarker.close()

@@ -11,7 +11,7 @@ from camera.camera_setup import Camera
 from camera.frame_tracker import FrameTracker
 from camera.hand_detector import HandDetector
 from camera.normalizer import HandNormalizer
-from game.game_state import SimpleGameState, create_game_visualization
+from game.game_state import GameState, create_game_visualization
 
 def load_camera_config():
     with open('config/camera_config.yaml') as file:
@@ -51,20 +51,17 @@ def main():
         print(f"   ✗ Camera initialization failed: {e}")
         return
     
-    print("\n2. Initializing Hand Detector...")
-    try:
-        detector = HandDetector(mediapipe_config)
-        print("   ✓ Hand tracking ready")
-    except Exception as e:
-        print(f"   ✗ Hand detector failed: {e}")
-        camera.release()
-        return
+    print("\n2. Initializing Frame Tracker...")
+    frame_tracker = FrameTracker()
     
-    print("\n3. Initializing Normalizer...")
+    print("\n3. Initializing Hand Detector...")
+    detector = HandDetector(mediapipe_config)
+    
+    print("\n4. Initializing Normalizer...")
     normalizer = HandNormalizer(mediapipe_config.get("normalization", {}))
     
-    print("\n4. Initializing Game State...")
-    game_state = SimpleGameState(game_config)
+    print("\n5. Initializing Game State...")
+    game_state = GameState(game_config)
     
     print("\n" + "=" * 50)
     print("GAME READY")
@@ -81,33 +78,52 @@ def main():
     last_stats_time = time.time()
     
     while True:
-        # Capture frame
+        start_time = time.perf_counter()
+        
         ret, frame = camera.cap.read()
         if not ret:
             print("❌ Failed to capture frame")
             break
-        
-        # Detect hands
+
+        frame_tracker.capture_frame(frame)
+
         left_hand, right_hand = detector.process_frame(frame)
-        
-        # Normalize positions
+
+        if game_config.get("debug_mode"):
+            process_end = time.perf_counter()
+            process_time = process_end - start_time
+
         normalization_result = normalizer.process_hands(
             left_hand, right_hand, frame.shape
         )
-        
-        # Update game state
+
+        if game_config.get("debug_mode"):
+            normalization_end = time.perf_counter()
+            normalization_time = normalization_end - process_end
+
         game_state.update(normalization_result)
-        
-        # Create game visualization
+
         game_frame = create_game_visualization(
             frame, game_state, normalization_result, frame.shape
         )
+
+        if game_config.get("debug_mode"):
+            game_update_time = time.perf_counter() - normalization_end
         
         # Display
         cv2.imshow("Hand Gesture Game", game_frame)
+
+
+        if game_config.get("debug_mode"):
+            print("-------------")
+            print(process_time)
+            print(normalization_time)
+            print(game_update_time)
+            print(time.perf_counter() - start_time)
+            print("-------------")
         
         # Periodic status updates
-        if frame_count % 60 == 0:  # Every ~1 second at 60fps
+        if frame_count % 60 == 0 and game_config.get("debug_mode"):  # Every ~1 second at 60fps
             state_info = game_state.get_state_info()
             print(f"\nFrame {frame_count}:")
             print(f"  State: {state_info['state']}")

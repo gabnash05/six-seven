@@ -25,6 +25,7 @@ class TemporalBuffer:
         if right_y is not None:
             self.right_buffer.append((right_y, timestamp))
         
+        
     def get_smoothed(self) -> Tuple[Optional[float], Optional[float]]:
         """Get median-smoothed positions (rejects outliers)"""
 
@@ -82,6 +83,7 @@ class TemporalBuffer:
             "range": float(np.ptp(positions)),
             "stability": 1.0 / (1.0 + np.std(positions))  # Higher = more stable
         }    
+
 
 class HandNormalizer:
     """Normalizes hand positions to torso-relative coordinates"""
@@ -248,6 +250,7 @@ class HandNormalizer:
             "frame_height": frame_height
         }
     
+
     def get_normalization_stats(self) -> Dict[str, Any]:
         """Get statistics about normalization performance"""
         

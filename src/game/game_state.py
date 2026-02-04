@@ -16,7 +16,7 @@ class State(Enum):
     COOLDOWN = 3
 
 
-class SimpleGameState:
+class GameState:
     """Minimal game state machine for hand gesture detection"""
     
     def __init__(self, config=None):
@@ -34,6 +34,7 @@ class SimpleGameState:
         
         self.debug = self.config.get('debug_mode', False)
     
+
     def update(self, normalization_result: Dict[str, Any]) -> None:
         """
         Update game state based on normalized hand positions.
@@ -41,6 +42,7 @@ class SimpleGameState:
         Args:
             normalization_result: Output from HandNormalizer.process_hands()
         """
+        
         current_time = time.perf_counter()
         time_in_state = current_time - self.state_entry_time
         
@@ -84,8 +86,8 @@ class SimpleGameState:
         elif self.current_state == State.COOLDOWN:
             self._handle_cooldown_state(time_in_state, current_time)
     
-    def _handle_idle_state(self, dominance_diff: float, threshold: float, 
-                          current_time: float) -> None:
+
+    def _handle_idle_state(self, dominance_diff: float, threshold: float, current_time: float) -> None:
         """Handle IDLE state transitions"""
         
         if dominance_diff > threshold:
@@ -103,38 +105,31 @@ class SimpleGameState:
         else:
             self.consecutive_dominant_frames = 0
     
-    def _handle_left_locked_state(self, dominance_diff: float, threshold: float,
-                                 hysteresis: float, time_in_state: float,
-                                 current_time: float) -> None:
+
+    def _handle_left_locked_state(self, dominance_diff: float, threshold: float, hysteresis: float, time_in_state: float, current_time: float) -> None:
         """Handle LEFT_DOMINANT_LOCKED state transitions"""
         
-        # Check for valid switch to right (scoring condition)
         if dominance_diff < -(threshold + hysteresis):
             self.consecutive_dominant_frames += 1
             if self.consecutive_dominant_frames >= self.config['min_lock_frames']:
-                # Valid switch - score!
                 self.score += 1
                 self.last_score_time = current_time
                 self.last_valid_dominance = "RIGHT"
                 self._change_state(State.COOLDOWN, current_time)
                 
-        # Reset counter if still left-dominant
         elif dominance_diff > threshold:
             self.consecutive_dominant_frames = 0
             
-        # If in ambiguous zone, could be invalid - return to IDLE
         else:
-            self._change_state(State.IDLE, current_time)
+            return
     
-    def _handle_right_locked_state(self, dominance_diff: float, threshold: float,
-                                  hysteresis: float, time_in_state: float,
-                                  current_time: float) -> None:
+
+    def _handle_right_locked_state(self, dominance_diff: float, threshold: float, hysteresis: float, time_in_state: float, current_time: float) -> None:
         """Handle RIGHT_DOMINANT_LOCKED state transitions"""
         
         if dominance_diff > (threshold + hysteresis):
             self.consecutive_dominant_frames += 1
             if self.consecutive_dominant_frames >= self.config['min_lock_frames']:
-                # Valid switch - score!
                 self.score += 1
                 self.last_score_time = current_time
                 self.last_valid_dominance = "LEFT"
@@ -144,13 +139,16 @@ class SimpleGameState:
             self.consecutive_dominant_frames = 0
             
         else:
-            self._change_state(State.IDLE, current_time)
+            return
+    
     
     def _handle_cooldown_state(self, time_in_state: float, current_time: float) -> None:
         """Handle COOLDOWN state transitions"""
+        
         if time_in_state >= self.config['cooldown_duration']:
             self._change_state(State.IDLE, current_time)
     
+
     def _change_state(self, new_state: State, timestamp: float) -> None:
         """Change state and update tracking variables"""
         if new_state == self.current_state:
@@ -164,6 +162,7 @@ class SimpleGameState:
         if self.debug:
             print(f"State change: {old_state.name} -> {new_state.name}")
     
+
     def get_state_info(self) -> Dict[str, Any]:
         """Get current state information"""
         current_time = time.perf_counter()
@@ -177,6 +176,7 @@ class SimpleGameState:
             'in_cooldown': self.current_state == State.COOLDOWN
         }
     
+
     def reset(self) -> None:
         """Reset game to initial state"""
         self.current_state = State.IDLE
@@ -194,7 +194,7 @@ def create_game_visualization(frame, game_state, normalization_result, frame_sha
     
     Args:
         frame: Original frame
-        game_state: SimpleGameState instance
+        game_state: GameState instance
         normalization_result: From HandNormalizer
         frame_shape: Frame dimensions
     """
@@ -223,7 +223,7 @@ def create_game_visualization(frame, game_state, normalization_result, frame_sha
     score_text = f"SCORE: {game_state.score}"
     cv2.putText(display_frame, score_text,
                 (width - 200, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     
     # Show dominance indicator
     left_data = normalization_result.get('left')
@@ -242,7 +242,6 @@ def create_game_visualization(frame, game_state, normalization_result, frame_sha
                      (left_x + bar_width, height // 2),
                      (100, 200, 255), -1)
         
-        # Right hand bar (pink)
         right_y = int((0.5 - right_data.get('smoothed', 0) * 0.4) * height)
         right_height = int(abs(right_data.get('smoothed', 0)) * height * 0.4)
         right_x = width // 2 + bar_spacing
